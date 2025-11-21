@@ -20,13 +20,10 @@ function reducer(state, action) {
   switch (action.type) {
     case "loading":
       return { ...state, isLoading: true };
-
     case "cities/loaded":
       return { ...state, isLoading: false, cities: action.payload };
-
     case "city/loaded":
       return { ...state, isLoading: false, curCity: action.payload };
-
     case "city/created":
       return {
         ...state,
@@ -34,7 +31,6 @@ function reducer(state, action) {
         cities: [...state.cities, action.payload],
         curCity: action.payload,
       };
-
     case "city/deleted":
       return {
         ...state,
@@ -42,13 +38,30 @@ function reducer(state, action) {
         cities: state.cities.filter((city) => city.id !== action.payload),
         curCity: {},
       };
-
     case "rejected":
       return { ...state, isLoading: false, error: "Unknown" };
-
     default:
       throw new Error("Unknown action type");
   }
+}
+
+function normalizeCity(city) {
+  // Ensure position is always an object with numbers
+  let position = city.position;
+  if (typeof position === "string") {
+    try {
+      position = JSON.parse(position);
+    } catch {
+      position = { lat: 0, lng: 0 };
+    }
+  }
+  return {
+    ...city,
+    position: {
+      lat: Number(position?.lat || 0),
+      lng: Number(position?.lng || 0),
+    },
+  };
 }
 
 function CitiesProvider({ children }) {
@@ -57,14 +70,19 @@ function CitiesProvider({ children }) {
     initialState
   );
 
-  // Fetch all cities
   useEffect(() => {
     dispatch({ type: "loading" });
     async function fetchCities() {
       try {
-        const { data, error } = await supabase.from("cities").select("*");
+        const { data, error } = await supabase
+          .from("cities")
+          .select("*");
+
         if (error) throw error;
-        dispatch({ type: "cities/loaded", payload: data });
+
+        // Normalize all cities
+        const normalized = data.map(normalizeCity);
+        dispatch({ type: "cities/loaded", payload: normalized });
       } catch {
         dispatch({ type: "rejected" });
       }
@@ -72,7 +90,6 @@ function CitiesProvider({ children }) {
     fetchCities();
   }, []);
 
-  // Fetch one city by ID
   const getCity = useCallback(
     async function getCity(id) {
       if (+id === curCity.id) return;
@@ -83,8 +100,10 @@ function CitiesProvider({ children }) {
           .select("*")
           .eq("id", id)
           .single();
+
         if (error) throw error;
-        dispatch({ type: "city/loaded", payload: data });
+
+        dispatch({ type: "city/loaded", payload: normalizeCity(data) });
       } catch {
         dispatch({ type: "rejected" });
       }
@@ -92,7 +111,6 @@ function CitiesProvider({ children }) {
     [curCity.id]
   );
 
-  // Create a new city
   async function createCity(newCity) {
     dispatch({ type: "loading" });
     try {
@@ -101,19 +119,25 @@ function CitiesProvider({ children }) {
         .insert([newCity])
         .select()
         .single();
+
       if (error) throw error;
-      dispatch({ type: "city/created", payload: data });
+
+      dispatch({ type: "city/created", payload: normalizeCity(data) });
     } catch {
       dispatch({ type: "rejected" });
     }
   }
 
-  // Delete a city by ID
   async function deleteCity(id) {
     dispatch({ type: "loading" });
     try {
-      const { error } = await supabase.from("cities").delete().eq("id", id);
+      const { error } = await supabase
+        .from("cities")
+        .delete()
+        .eq("id", id);
+
       if (error) throw error;
+
       dispatch({ type: "city/deleted", payload: id });
     } catch {
       dispatch({ type: "rejected" });
@@ -144,3 +168,4 @@ function useCities() {
 }
 
 export { CitiesProvider, useCities };
+
