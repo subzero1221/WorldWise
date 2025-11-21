@@ -60,7 +60,7 @@ function CitiesProvider({ children }) {
     dispatch({ type: "loading" });
     async function fetchCities() {
       try {
-        const res = await fetch(`http://localhost:8000/cities`);
+        const res = await fetch(`http://https://world-wise-26ci.vercel.app/cities`);
         const data = await res.json();
         dispatch({ type: "cities/loaded", payload: data });
         console.log(data);
@@ -76,7 +76,7 @@ function CitiesProvider({ children }) {
       if (+id === curCity.id) return;
       dispatch({ type: "loading" });
       try {
-        const res = await fetch(`http://localhost:8000/cities/${id}`);
+        const res = await fetch(`http://https://world-wise-26ci.vercel.app/cities/${id}`);
         const data = await res.json();
         dispatch({ type: "city/loaded", payload: data });
         console.log(data);
@@ -90,7 +90,7 @@ function CitiesProvider({ children }) {
   async function createCity(newCity) {
     dispatch({ type: "loading" });
     try {
-      const res = await fetch(`http://localhost:8000/cities/`, {
+      const res = await fetch(`http://https://world-wise-26ci.vercel.app/cities/`, {
         method: "POST",
         body: JSON.stringify(newCity),
         headers: {
@@ -108,7 +108,7 @@ function CitiesProvider({ children }) {
   async function deleteCity(id) {
     dispatch({ type: "loading" });
     try {
-      const res = await fetch(`http://localhost:8000/cities/${id}`, {
+      const res = await fetch(`http://https://world-wise-26ci.vercel.app/cities/${id}`, {
         method: "DELETE",
       });
 
