@@ -1,5 +1,11 @@
-import { createContext, useEffect, useContext, useReducer, useCallback } from "react";
-import { supabase } from "../supabase";
+import {
+  createContext,
+  useEffect,
+  useContext,
+  useReducer,
+  useCallback,
+} from "react";
+import { supabase } from "./../supabase";
 
 const CitiesContext = createContext();
 
@@ -46,38 +52,48 @@ function reducer(state, action) {
 }
 
 function CitiesProvider({ children }) {
-  const [{ cities, isLoading, error, curCity }, dispatch] = useReducer(reducer, initialState);
+  const [{ cities, isLoading, error, curCity }, dispatch] = useReducer(
+    reducer,
+    initialState
+  );
 
   // Fetch all cities
-  const fetchCities = useCallback(async () => {
+  useEffect(() => {
     dispatch({ type: "loading" });
-    try {
-      let { data, error } = await supabase.from("cities").select("*");
-      if (error) throw error;
+    async function fetchCities() {
+      try {
+        const { data, error } = await supabase
+          .from("cities")
+          .select("*");
 
-      // Transform lat/lng into position object
-      const transformed = data.map((city) => ({
-        ...city,
-        position: { lat: city.lat, lng: city.lng },
-      }));
+        if (error) throw error;
 
-      dispatch({ type: "cities/loaded", payload: transformed });
-    } catch {
-      dispatch({ type: "rejected" });
+        // Rebuild position object
+        const citiesWithPosition = data.map((c) => ({
+          ...c,
+          position: { lat: c.lat, lng: c.lng },
+        }));
+
+        dispatch({ type: "cities/loaded", payload: citiesWithPosition });
+      } catch {
+        dispatch({ type: "rejected" });
+      }
     }
+    fetchCities();
   }, []);
 
-  useEffect(() => {
-    fetchCities();
-  }, [fetchCities]);
-
-  // Get one city by ID
+  // Fetch one city
   const getCity = useCallback(
-    async function (id) {
+    async function getCity(id) {
       if (+id === curCity.id) return;
       dispatch({ type: "loading" });
       try {
-        let { data, error } = await supabase.from("cities").select("*").eq("id", id).single();
+        const { data, error } = await supabase
+          .from("cities")
+          .select("*")
+          .eq("id", id)
+          .single();
+
         if (error) throw error;
 
         const cityWithPosition = { ...data, position: { lat: data.lat, lng: data.lng } };
@@ -89,31 +105,41 @@ function CitiesProvider({ children }) {
     [curCity.id]
   );
 
-  // Create new city
+  // Create a new city
   const createCity = useCallback(async (newCity) => {
-  dispatch({ type: "loading" });
-  try {
-    
-    const { cityName, country, date, notes, position } = newCity;
-    const insertData = {
-      cityName,
-      country,
-      date,
-      notes,
-      lat: parseFloat(position.lat),
-      lng: parseFloat(position.lng),
-    };
+    dispatch({ type: "loading" });
+    try {
+      const { cityName, country, date, notes, position } = newCity;
+      const insertData = {
+        cityName,
+        country,
+        date,
+        notes,
+        lat: parseFloat(position.lat),
+        lng: parseFloat(position.lng),
+      };
 
-    const { data, error } = await supabase.from("cities").insert([insertData]).select().single();
-    if (error) throw error;
+      const { data, error } = await supabase.from("cities").insert([insertData]).select().single();
+      if (error) throw error;
 
-    // Transform back to position object for reducer
-    const cityWithPosition = { ...data, position: { lat: data.lat, lng: data.lng } };
-    dispatch({ type: "city/created", payload: cityWithPosition });
-  } catch {
-    dispatch({ type: "rejected" });
-  }
-}, []);
+      const cityWithPosition = { ...data, position: { lat: data.lat, lng: data.lng } };
+      dispatch({ type: "city/created", payload: cityWithPosition });
+    } catch {
+      dispatch({ type: "rejected" });
+    }
+  }, []);
+
+  // Delete city
+  const deleteCity = useCallback(async (id) => {
+    dispatch({ type: "loading" });
+    try {
+      const { error } = await supabase.from("cities").delete().eq("id", id);
+      if (error) throw error;
+      dispatch({ type: "city/deleted", payload: id });
+    } catch {
+      dispatch({ type: "rejected" });
+    }
+  }, []);
 
   return (
     <CitiesContext.Provider
